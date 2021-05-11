@@ -9,11 +9,12 @@ print(os.getcwd())
 dir = os.getcwd()
 print(os.listdir(os.getcwd()))
 
-# argument_list 개수 맞춰서 부여
+# argument_list runs수에 맞춰서 부여
 runs = 3
-num_train_epochs_list = [8,6,10]
-per_device_train_batch_size_list = [8,8,32]
-learning_rate_list=[2e-5,2e-5,3e-5]
+project_name = "title"
+num_train_epochs_list = [5,5,5]
+per_device_train_batch_size_list = [8,8,8]
+learning_rate_list=[3e-05,3e-05,4e-05]
 fp16_list=[True,True,True]
 save_totel_limit_list = 1
 save_steps_list = 100
@@ -21,15 +22,20 @@ output_dir_list = ["./models/train_dataset"]*runs
 do_train_list = [True]*runs
 do_eval_list = [False]*runs
 fp16_backend_list = ['amp']*runs
-model_name_or_path_list = ["monologg/kobert-lm","xlm-roberta-large","monologg/koelectra-base-v3-discriminator"]
+model_name_or_path_list = ["deepset/xlm-roberta-large-squad2"]*runs
+# deepset/xlm-roberta-large-squad2, monologg/kobert-lm,xlm-roberta-large, monologg/koelectra-base-v3-discriminator
 overwrite_output_dir_list = [True]*runs
+retrieval_list = ["sp"]*runs
+p_model_list = ["deepset/xlm-roberta-large-squad2"]*runs # dense embedding 시 passage를 Encoding할 모델
+q_model_list = ["deepset/xlm-roberta-large-squad2"]*runs # dense embedding 시 question을 Encoding할 모델
+run_name_list = ["lr=3e-05","lr=4e-05","lr=2.5e-05"]
 
 # inference_list 개수 맞춰서 부여
 
 do_predict = True
 do_eval = False
 
-for i in range(runs): # runs 만큼 모델 학습 및 추론 실험
+for i in range(runs-1): # runs 만큼 모델 학습 및 추론 실험
 
     # train arguments
     train_args = {
@@ -39,21 +45,31 @@ for i in range(runs): # runs 만큼 모델 학습 및 추론 실험
     "fp16":True,
     "save_total_limit" : 1,
     "save_steps" : 100,
-    "output_dir" : f"./models/train_dataset-{model_name_or_path_list[i]}" if model_name_or_path_list[i] is not None else f"./models/train_dataset",
+    "output_dir" : f"./models/train_dataset-{model_name_or_path_list[i]}{i}" if model_name_or_path_list[i] is not None else f"./models/train_dataset",
     "do_train" : True,
     "do_eval" : False,
     "fp16_backend" : 'amp',
     "fp16_opt_level" :'O2',
     "model_name_or_path": model_name_or_path_list[i],
-    "overwrite_output_dir":True
+    "overwrite_output_dir":True,
+    "use_wandb" : True, # whether you use wandb
+    "project_name":f"xlm-roberta-large-squad2-ex", # wandb project name
+    # "run_name":f"run-{i}",
+    "run_name":run_name_list[i],
+    "retrieval":retrieval_list[i] # 어떤 retrieval로 학습할 것인지(sp : sparse-embedding, de : dense-embedding)
     }
     del_embedding_file=True # 임베딩 파일 삭제할 것인지
+
+    if retrieval_list[i]=='de':
+        train_args["p_model"] = p_model_list[i]
+        train_args["q_model"] = q_model_list[i]
+
     cmd = 'python3'+' '+'train.py'+' '+' '.join([f'--{k}={str(v)}' for k,v in train_args.items() if v is not None])
 
     print(cmd)
     # 실행하는 부분
 
-    if del_embedding_file: # 임베딩 bin파일을 삭제할 것인지
+    if del_embedding_file: # 임베딩 bin파일을 삭제한다면
         if os.path.isfile(f"{dir}/data/sparse_embedding.bin"):
             os.remove(f"{dir}/data/sparse_embedding.bin")
         if os.path.isfile(f"{dir}/data/tfidv.bin"):
@@ -62,7 +78,7 @@ for i in range(runs): # runs 만큼 모델 학습 및 추론 실험
     subprocess.run([cmd],shell=True)
     print("학습 끝")
 
-    # 인퍼런스
+    # 인퍼런스 평가
 
     model_dir = f"{dir}/models/train_dataset-{model_name_or_path_list[i]}" if model_name_or_path_list[i] is not None \
         else f"{dir}/models/train_dataset"
