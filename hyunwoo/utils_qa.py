@@ -316,7 +316,7 @@ def postprocess_qa_predictions(
             retrieve_probs = exp_scores / exp_scores.sum()
 
             # choose the best answer
-            best_answer = np.argmax(mrc_probs)  # * retrieve_probs)
+            best_answer = np.argmax(mrc_probs * retrieve_probs)
             tmp_all_predictions[tmp_predictions[idx+best_answer][0][:-3]] = tmp_predictions[idx+best_answer][1] 
     
         all_predictions = tmp_all_predictions

@@ -66,7 +66,7 @@ def main():
     df = retriever.retrieve(dataset['train'], topk=2)
 
     # model_name and load tokenizer
-    model_name = 'bert-base-multilingual-cased'
+    model_name = 'monologg/kobert'
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     # tokenize data

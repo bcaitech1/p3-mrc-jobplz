@@ -101,21 +101,21 @@ def run_sparse_retrieval(datasets, training_args, data_args):
 
     datasets['validation'] = datasets['validation']
     # sparse Retrieval
-    # retriever = SparseRetrieval(tokenize_fn=tokenize,
-    #                            data_path="/opt/ml/input/data/data",
-    #                            context_path="wikipedia_documents.json")
+    retriever = SparseRetrieval(tokenize_fn=tokenize,
+                               data_path="/opt/ml/input/data/data",
+                               context_path="wikipedia_documents.json")
     #
     # sparse_embedding
-    # retriever.get_sparse_embedding()
-    # df = retriever.retrieve(datasets['validation'], topk=data_args.retrieve_topk)
+    retriever.get_sparse_embedding()
+    df = retriever.retrieve(datasets['validation'], topk=data_args.retrieve_topk)
 
     # dense Retrieval
-    retriever = DenseRetrieval(data_path="/opt/ml/input/data/data",
-                                context_path="wikipedia_documents.json")
+    # retriever = DenseRetrieval(data_path="/opt/ml/input/data/data",
+    #                            context_path="wikipedia_documents.json")
     
     # dense_embedding
-    retriever.get_embedding()
-    df = retriever.retrieve(datasets['validation'], topk=data_args.retrieve_topk)
+    # retriever.get_embedding()
+    # df = retriever.retrieve(datasets['validation'], topk=data_args.retrieve_topk)
 
     # faiss retrieval
     # df = retriever.retrieve_faiss(dataset['validation'])
