@@ -1,8 +1,8 @@
 #!/bin/bash
 
 python inference.py --output_dir /opt/ml/models/roberta/inference \
-		--model_name Dongjae/mrc2reader\
-		--tokenizer_name deepset/xlm-roberta-large-squad2\
+		--model_name /opt/ml/models/roberta\
+		--tokenizer_name xlm-roberta-large\
 		--dataset_name /opt/ml/input/data/data/test_dataset \
 		--do_predict \
 		--retrieve_topk 20 \

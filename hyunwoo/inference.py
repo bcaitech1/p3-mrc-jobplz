@@ -122,8 +122,8 @@ def run_sparse_retrieval(datasets, training_args, data_args):
     if training_args.do_predict: # test data 에 대해선 정답이 없으므로 id question context 로만 데이터셋이 구성됩니다.
         f = Features({'context': Value(dtype='string', id=None),
                       'id': Value(dtype='string', id=None),
-                      'question': Value(dtype='string', id=None),
-                      'score': Value(dtype='float32', id=None)})
+                      'question': Value(dtype='string', id=None)})
+                      # 'score': Value(dtype='float32', id=None)})
 
     elif training_args.do_eval: # train data 에 대해선 정답이 존재하므로 id question context answer 로 데이터셋이 구성됩니다.
         f = Features({'answers': Sequence(feature={'text': Value(dtype='string', id=None),

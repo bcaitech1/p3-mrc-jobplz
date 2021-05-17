@@ -117,6 +117,8 @@ class SparseRetrieval:
                 doc_scores, doc_indices = self.get_relevant_doc_bulk(query_or_dataset['question'], k=topk)
             for idx, example in enumerate(tqdm(query_or_dataset, desc="Sparse retrieval: ")):
                 relev_doc_ids = [el for i, el in enumerate(self.ids) if i in doc_indices[idx]]
+                '''
+                # topk개 만큼 retrieve
                 for i, doc_id in enumerate(relev_doc_ids):
                     tmp = {
                         "question": example["question"],
@@ -130,18 +132,23 @@ class SparseRetrieval:
                         tmp["answers"] = example['answers']           # original answer
                     total.append(tmp)
                 '''
-                original code
+                # topk개를 하나의 doc으로 만들기
+                tmp_context = []
+                for i, doc_id in enumerate(relev_doc_ids):
+                    tmp_context.append(self.contexts[doc_id])
+                tmp_context = '\n'.join(tmp_context)
+                
                 tmp = {
                         "question": example["question"],
                         "id": example['id'],
                         "context_id": doc_indices[idx][0],  # retrieved id
-                        "context": self.contexts[doc_indices[idx][0]],  # retrieved doument
-                    }
-                    if 'context' in example.keys() and 'answers' in example.keys():
-                        tmp["original_context"] = example['context']  # original document
-                        tmp["answers"] = example['answers']           # original answer
-                    total.append(tmp)
-                '''
+                        "context": tmp_context,  # retrieved doument
+                }
+                if 'context' in example.keys() and 'answers' in example.keys():
+                    tmp["original_context"] = example['context']  # original document
+                    tmp["answers"] = example['answers']           # original answer
+                total.append(tmp)
+                
             cqas = pd.DataFrame(total)
             return cqas
 

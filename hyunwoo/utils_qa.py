@@ -303,6 +303,7 @@ def postprocess_qa_predictions(
             for pred in predictions
         ]
     # **************************** 우리가 후처리 하기 좋은곳 - start
+    '''
     # choose the best answer with retriever's topk score
     if retrieve_topk > 1:
         tmp_predictions= list(all_predictions.items())
@@ -318,11 +319,11 @@ def postprocess_qa_predictions(
             retrieve_probs = exp_scores / exp_scores.sum()
 
             # choose the best answer
-            best_answer = np.argmax(mrc_probs) # * retrieve_probs)
+            best_answer = np.argmax(mrc_probs * retrieve_probs)
             tmp_all_predictions[tmp_predictions[idx+best_answer][0][:-3]] = tmp_predictions[idx+best_answer][1] 
     
         all_predictions = tmp_all_predictions
-
+    '''
     # delete josa
     for k, v in all_predictions.items():
         all_predictions[k] = delete_josa(v)
