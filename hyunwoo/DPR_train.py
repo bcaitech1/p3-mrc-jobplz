@@ -1,3 +1,4 @@
+import datasets
 import torch
 from tqdm.auto import tqdm
 from tqdm import trange
@@ -12,7 +13,8 @@ import torch.nn.functional as F
 from torch.utils.data import (
     DataLoader,
     RandomSampler,
-    TensorDataset
+    TensorDataset,
+    dataset
 )
 
 from datasets import load_from_disk, load_dataset, concatenate_datasets
@@ -27,6 +29,7 @@ import wandb
 
 from retrieval import SparseRetrieval
 from utils_qa import tokenize
+from tokenization_kobert import KoBertTokenizer
 
 def main():
     parser = argparse.ArgumentParser(description='Set some train option')
@@ -35,10 +38,10 @@ def main():
 
     args = parser.parse_args()
     # wandb setting
-    wandb.init(project='DPR_training', name='DPR_bert_with_TF_IDF' + args.name)
+    wandb.init(project='DPR_training', name='DPR_KoBert_with_TF_IDF' + args.name)
     wandb_config = wandb.config
     wandb_config.learning_rate = args.lr
-    wandb_config.batch_szie = 8
+    wandb_config.batch_szie = 6
     wandb_config.epochs = 20
     wandb_config.weigth_decay = 0.01
 
@@ -54,8 +57,7 @@ def main():
                                                     remove_columns=['document_id', '__index_level_0__'], 
                                                     keep_in_memory=True)
     
-    # dataset['train'] = concatenate_datasets([dataset_KLUE_train, dataset['train'].select(range(2000))])
-    dataset['train'] = dataset_KLUE_train
+    dataset['train'] = concatenate_datasets([dataset_KLUE_train, dataset['train'].select(range(3900))])
     dataset['validation'] = concatenate_datasets([dataset_KLUE_valid, dataset['validation'].select(range(1000))])
 
     # TF-IDF retrieval
@@ -63,34 +65,37 @@ def main():
                                 data_path="/opt/ml/input/data/data",
                                 context_path="wikipedia_documents.json")
     retriever.get_sparse_embedding()
-    df = retriever.retrieve(dataset['train'], topk=2)
+    df = retriever.retrieve(dataset['train'], topk=21)
 
     # model_name and load tokenizer
     model_name = 'monologg/kobert'
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = KoBertTokenizer.from_pretrained(model_name)
 
     # tokenize data
     training_dataset = dataset['train'] # .select(range(10))
 
-    high_TF_IDF_list = []
-    gold_list = []
-    equal_num = 0
-    for i in range(0, len(df), 2):
-        cxt1 = re.sub(r'[ ]+',' ', df.loc[i]['context'])
-        cxt1 = re.sub(r'\\n', '\n', cxt1)
-        cxt2 = re.sub(r'[ ]+',' ', df.loc[i+1]['context'])
-        cxt2 = re.sub(r'\\n', '\n', cxt2)
-        origin_cxt = re.sub(r'[ ]+', ' ', df.loc[i]["original_context"])
-        origin_cxt = re.sub(r'\\n', '\n', origin_cxt)
-        
-        gold_list.append(origin_cxt)
-        if cxt1 == origin_cxt:
-            equal_num += 1
-            high_TF_IDF_list.append(cxt2)
-        else:
-            high_TF_IDF_list.append(cxt1)
+    # difficult_problem
+    print('make negative sample')
+    gold_list = [re.sub(r'( )+' ,' ', cxt) for cxt in training_dataset['context']]
+    gold_list = [re.sub(r'\\n', '\n', cxt) for cxt in gold_list]
+    high_TF_IDF_list = [re.sub(r'( )+' ,' ', cxt) for cxt in df['context']]
+    high_TF_IDF_list = [re.sub(r'\\n', '\n', cxt) for cxt in high_TF_IDF_list]
+    high_TF_IDF_list = [high_TF_IDF_list[idx*21:idx*21+21] for idx in range(len(gold_list))]
+    
+    temp_list = []
+    for gold_cxt, TF_IDF_list in zip(gold_list, high_TF_IDF_list):
+        tmp_set = set(TF_IDF_list)
+        tmp_set.discard(gold_cxt)
+        temp_list.append(list(tmp_set))
+    
+    high_TF_IDF_list = temp_list
 
-    print(f'equal num: {equal_num}')
+    print(f'high_TF_IDF_list_num : {len(high_TF_IDF_list)}')
+
+    negative_token_list = [tokenizer(li , 
+                        padding='max_length', 
+                        truncation=True, 
+                        return_tensors='pt') for li in tqdm(high_TF_IDF_list)]
     
     q_seqs = tokenizer(training_dataset['question'], 
                         padding='max_length', 
@@ -102,17 +107,8 @@ def main():
                         return_tensors='pt')
     
 
-    difficult_negative_seqs = tokenizer(high_TF_IDF_list, 
-                        padding='max_length', 
-                        truncation=True, 
-                        return_tensors='pt')
-    
-
     # make dataset
-    train_dataset = TensorDataset(p_seqs['input_ids'], p_seqs['token_type_ids'], p_seqs['attention_mask'],
-                             q_seqs['input_ids'],  q_seqs['token_type_ids'], q_seqs['attention_mask'],
-                             difficult_negative_seqs['input_ids'],  difficult_negative_seqs['token_type_ids'], 
-                             difficult_negative_seqs['attention_mask'])
+    train_dataset = MyDataset(p_seqs, q_seqs, negative_token_list)
 
     # train_dataset = TensorDataset(p_seqs['input_ids'], p_seqs['attention_mask'], 
     #                             q_seqs['input_ids'], q_seqs['attention_mask'])
@@ -167,6 +163,25 @@ def main():
     # save model
     p_encoder.save_pretrained(os.path.join(args.output_dir, 'p_encoder'),save_config=True)
     q_encoder.save_pretrained(os.path.join(args.output_dir, 'q_encoder'), save_config=True)
+
+class MyDataset(torch.utils.data.Dataset):
+    """Some Information about MyDataset"""
+    def __init__(self, p_seqs, q_seqs, negative_token_list):
+        super(MyDataset, self).__init__()
+        self.p_seqs = p_seqs
+        self.q_seqs = q_seqs
+        self.negative_token_list = negative_token_list
+
+    def __getitem__(self, index):
+        return (self.p_seqs['input_ids'][index], self.p_seqs['token_type_ids'][index], self.p_seqs['attention_mask'][index],
+                self.q_seqs['input_ids'][index], self.q_seqs['token_type_ids'][index], self.q_seqs['attention_mask'][index],
+                self.negative_token_list[index]['input_ids'][np.random.randint(0, len(self.negative_token_list[index]['input_ids']))],
+                self.negative_token_list[index]['token_type_ids'][np.random.randint(0, len(self.negative_token_list[index]['token_type_ids']))],
+                self.negative_token_list[index]['attention_mask'][np.random.randint(0, len(self.negative_token_list[index]['attention_mask']))])
+
+    def __len__(self):
+        return len(self.p_seqs['input_ids'])
+
 
 class BertEncoder(BertPreTrainedModel):
     def __init__(self, config):
@@ -231,7 +246,7 @@ def train(args, train_dataset, valid_dataset, p_model, q_model):
     
     train_iterator = trange((int(args.num_train_epochs)), desc='Epoch')
 
-    for _ in train_iterator:
+    for epoch_index in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc='Iteration')
 
         p_model.train()

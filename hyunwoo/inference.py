@@ -98,8 +98,7 @@ def run_sparse_retrieval(datasets, training_args, data_args):
     #### retreival process ####
     # test code
     # datasets['validation'] = datasets['validation'].select(range(10))
-
-    datasets['validation'] = datasets['validation']
+    
     # sparse Retrieval
     retriever = SparseRetrieval(tokenize_fn=tokenize,
                                data_path="/opt/ml/input/data/data",

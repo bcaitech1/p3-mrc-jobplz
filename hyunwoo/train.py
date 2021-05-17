@@ -17,6 +17,7 @@ from datasets import load_dataset
 from utils_qa import postprocess_qa_predictions, check_no_error, tokenize
 from trainer_qa import QuestionAnsweringTrainer
 from retrieval import SparseRetrieval
+from tokenization_kobert import KoBertTokenizer
 
 from arguments import (
     ModelArguments,
@@ -50,7 +51,8 @@ def main():
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
-
+    
+    '''
     datasets = load_dataset("squad_kor_v1")
     dataset_KLUE = load_from_disk('/opt/ml/input/data/data/train_dataset')
     dataset_KLUE_train = dataset_KLUE['train'].map(features=datasets['train'].features, 
@@ -67,13 +69,12 @@ def main():
     # test code
     # datasets['train'] = datasets['train'].select(range(10))
     # datasets['validation'] = datasets['validation'].select(range(10))
-
     '''
+
     if os.path.isdir(data_args.dataset_name):
         datasets = load_from_disk(data_args.dataset_name)
     else:
         datasets = load_dataset(data_args.dataset_name)
-    '''
 
     print(datasets)
 
@@ -83,12 +84,16 @@ def main():
         if model_args.config_name
         else model_args.model_name_or_path,
     )
+    # monologg/kobert
+    tokenizer = KoBertTokenizer.from_pretrained('monologg/kobert')
+    '''
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name
         if model_args.tokenizer_name
         else model_args.model_name_or_path,
         use_fast=True,
     )
+    '''
     model = AutoModelForQuestionAnswering.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),

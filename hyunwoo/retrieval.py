@@ -29,8 +29,8 @@ class SparseRetrieval:
     def __init__(self, tokenize_fn, data_path="./data/", context_path="wikipedia_documents.json"):
         self.data_path = data_path
         # with open(os.path.join(data_path, context_path), "r") as f:
-        #    wiki = json.load(f)
-        with open('/opt/ml/input/data/data/split_wiki_list_1024.bin', 'rb') as f:
+        #     wiki = json.load(f)
+        with open('/opt/ml/input/data/data/wiki_1280_kss.pickle', 'rb') as f:
             self.contexts = pickle.load(f)
 
         # self.contexts = list(dict.fromkeys([v['text'] for v in wiki.values()])) # set 은 매번 순서가 바뀌므로

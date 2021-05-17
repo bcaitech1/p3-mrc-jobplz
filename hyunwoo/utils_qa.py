@@ -21,6 +21,7 @@ import json
 import logging
 import os
 from typing import Optional, Tuple
+from pororo import Pororo
 
 import numpy as np
 from tqdm.auto import tqdm
@@ -46,10 +47,11 @@ def delete_josa(sentence):
     else:
         return sentence
 
+mecab_tokenizer = Pororo(task='tokenize', lang='ko', model = "mecab.bpe64k.ko") 
 
 def tokenize(text):
     # return text.split(" ")
-    return mecab.morphs(text)
+    return  mecab_tokenizer(text)
 
 def set_seed(seed: int):
     """
@@ -316,7 +318,7 @@ def postprocess_qa_predictions(
             retrieve_probs = exp_scores / exp_scores.sum()
 
             # choose the best answer
-            best_answer = np.argmax(mrc_probs * retrieve_probs)
+            best_answer = np.argmax(mrc_probs) # * retrieve_probs)
             tmp_all_predictions[tmp_predictions[idx+best_answer][0][:-3]] = tmp_predictions[idx+best_answer][1] 
     
         all_predictions = tmp_all_predictions
