@@ -86,11 +86,13 @@ class SparseRetrieval:
         wiki784_name = 'wiki_784_kss.pickle'
         wiki1280_name = 'wiki_1280_kss.pickle'
         wiki1500_name = 'wiki_1500_kss.pickle'
+        wiki_split_newlines = 'wiki_split_newlines.pickle'
 
         if os.path.isfile(os.path.join(self.data_path, wiki1280_name)) :
             with open(os.path.join(self.data_path, wiki1280_name), 'rb') as file :
                 self.contexts = pickle.load(file)
         else :
+        # 글자수로 자를 때
             new_context = [v['text'] for v in wiki.values() if v['document_id'] not in trash_ids]
             self.contexts = []
             for current in new_context :
@@ -105,6 +107,21 @@ class SparseRetrieval:
             # 위키피디아 피클 저장
             with open(os.path.join(data_path, wiki1280_name), "wb") as file:
                 pickle.dump(self.contexts, file)
+        # 문단으로 자를 때
+            # new_context = [v['text'] for v in wiki.values() if v['document_id'] not in trash_ids]
+            # self.contexts = []
+            # for current in new_context :
+            #     # print(current)
+            #     try :
+            #         te = current.split('\n\n')
+            #         for v in te :
+            #             self.contexts.append(v)
+            #     except :
+            #         self.contexts.append(current)
+            #         continue
+            # # 위키피디아 피클 저장
+            # with open(os.path.join(data_path, wiki_split_newlines), "wb") as file:
+            #     pickle.dump(self.contexts, file)
 
         print(f"Lengths of unique contexts : {len(self.contexts)}")
         self.ids = list(range(len(self.contexts)))
@@ -116,15 +133,9 @@ class SparseRetrieval:
         self.tfidfv = TfidfVectorizer(
             tokenizer=tokenize_fn,
             ngram_range=(1, 2),
+            # sublinear_tf=True,
             # max_features=50000,
         )
-    # BM25 - 용량이 터진다;
-        # self.tfidfv = BM25(
-        #         tokenizer=tokenize_fn, #형태소 자르기
-        #         ngram_range=(1, 2),
-        #         k1= 1.0
-        # )
-        # should run get_sparse_embedding() or build_faiss() first.
         self.p_embedding = None
         self.indexer = None
 
@@ -225,7 +236,6 @@ class SparseRetrieval:
             
             # print(doc_indices)
             for idx, example in enumerate(tqdm(query_or_dataset, desc="Sparse retrieval: ")):
-                # relev_doc_ids = [el for i, el in enumerate(self.ids) if i in doc_indices[idx]]
             # 기존
                 tmp = {
                     "question": example["question"],
@@ -239,7 +249,22 @@ class SparseRetrieval:
                     tmp["original_context"] = example['context']  # original document
                     tmp["answers"] = example['answers']           # original answer
                 total.append(tmp)
+            # 현우님꺼
+                # relev_doc_ids = [el for i, el in enumerate(self.ids) if i in doc_indices[idx]]
+                # for i in range(topk) :
+                #     tmp = {
+                #         "question": example["question"],
+                #         "id": example['id'] + '-' + f'{i:02}',
+                #         "context_id": doc_indices[idx][i],  # retrieved id
+                #         'context' : self.contexts[doc_indices[idx][i]],
+                #         'score' : doc_scores[idx][i]
+                #     }
+                #     if 'context' in example.keys() and 'answers' in example.keys():
+                #         tmp["original_context"] = example['context']  # original document
+                #         tmp["answers"] = example['answers']           # original answer
+                #     total.append(tmp)
             # 변경
+                # relev_doc_ids = [el for i, el in enumerate(self.ids) if i in doc_indices[idx]]
                 # for i in range(topk) :
                 #     tmp = {
                 #         "question": example["question"],
