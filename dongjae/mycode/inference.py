@@ -105,10 +105,11 @@ def run_sparse_retrieval(datasets, training_args):
         f = Features({'context': Value(dtype='string', id=None),
                       'id': Value(dtype='string', id=None),
                       'question': Value(dtype='string', id=None)})
-        # 변경 
+        # 현우님꺼
         # f = Features({'context': Value(dtype='string', id =None),
         #               'id': Value(dtype='string', id=None),
-        #               'question': Value(dtype='string', id=None)})
+        #               'question': Value(dtype='string', id=None),
+        #               'score' : Value(dtype='float32', id = None)})
 
     elif training_args.do_eval: # train data 에 대해선 정답이 존재하므로 id question context answer 로 데이터셋이 구성됩니다.
         f = Features({'answers': Sequence(feature={'text': Value(dtype='string', id=None),
@@ -199,6 +200,7 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
     # Post-processing:
     def post_processing_function(examples, features, predictions, training_args):
         # Post-processing: we match the start logits and end logits to answers in the original context.
+    # 기본    
         predictions = postprocess_qa_predictions(
             examples=examples,
             features=features,
@@ -206,6 +208,15 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
             max_answer_length=data_args.max_answer_length,
             output_dir=training_args.output_dir,
         )
+    # # 현우님꺼
+    #     predictions = postprocess_qa_predictions(
+    #         examples=examples,
+    #         features=features,
+    #         predictions=predictions,
+    #         max_answer_length=data_args.max_answer_length,
+    #         output_dir=training_args.output_dir,
+    #         retrieve_topk = 100,
+    #     )
         # Format the result to the format the metric expects.
         formatted_predictions = [
             {"id": k, "prediction_text": v} for k, v in predictions.items()
