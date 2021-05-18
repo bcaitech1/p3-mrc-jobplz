@@ -26,14 +26,18 @@ def timer(name):
     print(f'[{name}] done in {time.time() - t0:.3f} s')
 
 class SparseRetrieval:
-    def __init__(self, tokenize_fn, data_path="./data/", context_path="wikipedia_documents.json"):
+    def __init__(self, tokenize_fn, data_path="./data/", context_path="wikipedia_documents.json", chunk_data=False):
         self.data_path = data_path
-        # with open(os.path.join(data_path, context_path), "r") as f:
-        #     wiki = json.load(f)
-        with open('/opt/ml/input/data/data/wiki_1280_kss.pickle', 'rb') as f:
-            self.contexts = pickle.load(f)
+        self.chunk_data = chunk_data
+        if chunk_data:
+            with open('/opt/ml/input/data/data/wiki_1280_kss.pickle', 'rb') as f:
+                self.contexts = pickle.load(f)
+        else:
+            with open(os.path.join(data_path, context_path), "r") as f:
+                wiki = json.load(f)                
+            # set 은 매번 순서가 바뀌므로
+            self.contexts = list(dict.fromkeys([v['text'] for v in wiki.values()]))
 
-        # self.contexts = list(dict.fromkeys([v['text'] for v in wiki.values()])) # set 은 매번 순서가 바뀌므로
         print(f"Lengths of unique contexts : {len(self.contexts)}")
         self.ids = list(range(len(self.contexts)))
 
@@ -51,8 +55,12 @@ class SparseRetrieval:
 
     def get_sparse_embedding(self):
         # Pickle save.
-        pickle_name = f"sparse_embedding.bin"
-        tfidfv_name = f"tfidv.bin"
+        if self.chunk_data:
+            pickle_name = f"kss_sparse_embedding.bin"
+            tfidfv_name = f"kss_tfidv.bin"
+        else:
+            pickle_name = f"sparse_embedding.bin"
+            tfidfv_name = f"tfidv.bin"
         emd_path = os.path.join(self.data_path, pickle_name)
         tfidfv_path = os.path.join(self.data_path, tfidfv_name)
         if os.path.isfile(emd_path) and os.path.isfile(tfidfv_path):
