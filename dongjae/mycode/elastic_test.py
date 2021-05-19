@@ -13,7 +13,7 @@ es = Elasticsearch('localhost:9200')
 
 print(es.info())
 
-es.indices.create(index = 'document_original',
+es.indices.create(index = 'document_kss',
                   body = {
                       'settings':{
                           'analysis':{
@@ -58,36 +58,36 @@ es.indices.create(index = 'document_original',
                   }
                   )
 
-print(es.indices.get('document_original'))
+print(es.indices.get('document_kss'))
 
 
-trash_ids = [973, 4525, 4526, 4527, 4528, 4529, 4530, 4531, 4532, 4533, 4534, 5527,
-             9079, 9080, 9081, 9082, 9083, 9084, 9085, 9086, 9087, 9088, 28989, 29028,
-              31111, 37157]
+# trash_ids = [973, 4525, 4526, 4527, 4528, 4529, 4530, 4531, 4532, 4533, 4534, 5527,
+#              9079, 9080, 9081, 9082, 9083, 9084, 9085, 9086, 9087, 9088, 28989, 29028,
+#               31111, 37157]
 
 
 with open('/opt/ml/input/data/data/wikipedia_documents.json', 'r') as f :
     # wiki_data = pd.DataFrame(json.load(f)).transpose()
     wiki = json.load(f)
 
-new_wiki = [(v['title'], v['text'].strip()) for v in wiki.values() if v['document_id'] not in trash_ids]
-# new_wiki_title = []
-# new_wiki_text = []
+new_wiki = [(v['title'], v['text'].strip()) for v in wiki.values() if v['document_id']]
+new_wiki_title = []
+new_wiki_text = []
 
-# for current_title, current_text in tqdm(new_wiki) :
-#     try :
-#         te = kss.split_chunks(current_text, max_length= 1280, overlap = True)
-#         for i in range(len(te)) :
-#             new_wiki_title.append(current_title + str(i))
-#             new_wiki_text.append(te[i].text)
-#     except :
-#         new_wiki_title.append(current_title)
-#         new_wiki_text.append(current_text)
-#         continue
+for current_title, current_text in tqdm(new_wiki) :
+    try :
+        te = kss.split_chunks(current_text, max_length= 1280, overlap = True)
+        for i in range(len(te)) :
+            new_wiki_title.append(current_title + str(i))
+            new_wiki_text.append(te[i].text)
+    except :
+        new_wiki_title.append(current_title)
+        new_wiki_text.append(current_text)
+        continue
 
 print('start elastic search indexing')
 for num in tqdm(range(len(new_wiki))) :
-    es.index(index = 'document_original', body = {"title" : new_wiki[num][0], 'text' : new_wiki[num][1]})
+    es.index(index = 'document_kss', body = {"title" : new_wiki[num][0], 'text' : new_wiki[num][1]})
 
 question = '대한민국의 대통령은 누구인가?'
 
@@ -104,6 +104,6 @@ query = {
     }
 }
 
-doc = es.search(index='document_original',body=query,size=10)['hits']['hits']
+doc = es.search(index='document_kss',body=query,size=10)['hits']['hits']
 
 print(doc)

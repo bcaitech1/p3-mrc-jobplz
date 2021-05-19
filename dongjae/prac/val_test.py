@@ -1,4 +1,5 @@
 import pandas as pd
+import json
 
 # print(temp)
 # valid_set = pd.read_csv('./valid_120_to_160.csv', sep = ',')
@@ -20,3 +21,8 @@ import pandas as pd
 #         numbers.append(i+120)
 # print(f"총 틀린 갯수 : {count}")
 # print(f"틀린 문항 : {numbers}")
+wiki_path = '/opt/ml/input/data/data/ground_truth.json'
+with open(wiki_path) as wiki :
+    wiki_data = json.load(wiki)
+ground_truth = [v.split(':')[2:] for v in wiki_data.keys()]
+print(ground_truth)

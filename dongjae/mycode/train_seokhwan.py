@@ -45,6 +45,7 @@ def remove_double_space(example) :
 def main():
     # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
     # --help flag 를 실행시켜서 확인할 수 도 있습니다.
+
     parser = HfArgumentParser(
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
@@ -53,6 +54,7 @@ def main():
     '''
         model 임시 지정 !!!!!
     '''
+    model_args.model_name_or_path = 'mfeb/albert-xxlarge-v2-squad2'
     print(f"model is from {model_args.model_name_or_path}")
     print(f"data is from {data_args.dataset_name}")
 

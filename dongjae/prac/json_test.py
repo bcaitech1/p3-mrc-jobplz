@@ -36,16 +36,16 @@ stopword = "아 휴 아이구 아이쿠 아이고 어 나 우리 저희 따라 �
 '''
     wiki data TEST
 '''
-wiki_path = '/opt/ml/input/data/data/wikipedia_documents.json'
-with open(wiki_path) as wiki :
-    wiki_data = json.load(wiki)
+# wiki_path = '/opt/ml/input/data/data/wikipedia_documents.json'
+# with open(wiki_path) as wiki :
+#     wiki_data = json.load(wiki)
 
-context = list(dict.fromkeys([v['text'] for v in wiki_data.values()]))
-context = sorted(context, key = lambda x : -len(x))
+# context = list(dict.fromkeys([v['text'] for v in wiki_data.values()]))
+# context = sorted(context, key = lambda x : -len(x))
 
-temp_context = context[28]
-print(temp_context)
-print(' '.join(re.sub(r'''[^ \r\nㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z0-9~₩!@#$%^&*()_+|{}:"<>?`\-=\\[\];',.\/]''', ' ', str(temp_context.strip())).split()))
+# temp_context = context[28]
+# print(temp_context)
+# print(' '.join(re.sub(r'''[^ \r\nㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z0-9~₩!@#$%^&*()_+|{}:"<>?`\-=\\[\];',.\/]''', ' ', str(temp_context.strip())).split()))
 # # print(temp_context)
 # # print(len(temp_context))
 
@@ -190,10 +190,10 @@ print(' '.join(re.sub(r'''[^ \r\nㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z0-9~₩!@#$%^&*()_+|
 '''
     testset question TEST
 '''
-# data = load_from_disk('/opt/ml/input/data/data/test_dataset')['validation']
-# data_dict = {}
-# for d in data :
-#     data_dict[d['id']] = d['question']
+data = load_from_disk('/opt/ml/input/data/data/test_dataset')['validation']
+data_dict = {}
+for d in data :
+    data_dict[d['id']] = d['question']
 
 
 
@@ -225,25 +225,25 @@ print(' '.join(re.sub(r'''[^ \r\nㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z0-9~₩!@#$%^&*()_+|
 # p8 = '/opt/ml/results/predictions/xlm-roberta-large-squad/wiki_kss_1280_epoch2-topk30/predictions.json'
 # p9 = '/opt/ml/results/predictions/xlm-roberta-large-squad/wiki_kss_1280_epoch2-topk15/predictions.json'
 
-# p1 = '/opt/ml/results/predictions/xlm-roberta-large-squad/elastic/topk25/predictions.json'
-# p7 = '/opt/ml/results/predictions/xlm-roberta-large-squad/elastic/connect/topk30/predictions.json'
-# with open(p1) as p1_file:
-#     p1_data = json.load(p1_file).items()
-# with open(p7) as p7_file:
-#     p7_data = json.load(p7_file).items()
+p1 = '/opt/ml/results/predictions/xlm-roberta-large-squad/elastic/score/topk20/predictions.json'
+p7 = '/opt/ml/results/predictions/xlm-roberta-large-squad/elastic/score/topk30/predictions.json'
+with open(p1) as p1_file:
+    p1_data = json.load(p1_file).items()
+with open(p7) as p7_file:
+    p7_data = json.load(p7_file).items()
 # # with open(p8) as p8_file:
 # #     p8_data = json.load(p8_file).items()
 # # with open(p9) as p9_file:
 # #     p9_data = json.load(p9_file).items()
 
-# value17 = 0
-# for a, b in zip(p1_data, p7_data) :
-#     if (a[0] == b[0]) and (a[1] == b[1]) :
-#         value17 += 1
-#     else :
-#         print(f"question : {data_dict[a[0]]}")
-#         print(f"a : {a[1]}        b : {b[1]}")
-# print(value17)
+value17 = 0
+for a, b in zip(p1_data, p7_data) :
+    if (a[0] == b[0]) and (a[1] == b[1]) :
+        value17 += 1
+    else :
+        print(f"question : {data_dict[a[0]]}")
+        print(f"a : {a[1]}        b : {b[1]}")
+print(value17)
 
 
 # value18 = 0
