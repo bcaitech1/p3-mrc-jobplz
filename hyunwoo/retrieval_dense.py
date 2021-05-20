@@ -77,12 +77,18 @@ class DenseRetrieval:
                 wiki = pickle.load(f)
 
             self.contexts = wiki # set 은 매번 순서가 바뀌므로
-            print(f"Lengths of unique contexts : {len(self.contexts)}")
             self.ids = list(range(len(self.contexts)))
+        elif context_path[-4:] == 'json':
+            with open(os.path.join(data_path, context_path), "r") as f:
+                wiki = json.load(f)                
+            # set 은 매번 순서가 바뀌므로
+            self.contexts = list(dict.fromkeys([v['text'] for v in wiki.values()]))
         else :
             wiki = pd.read_csv(os.path.join(data_path, context_path))
             self.contexts = list(wiki['context'])
             self.ids = list(wiki['doc_id'])
+        
+        print(f"Lengths of unique contexts : {len(self.contexts)}")
 
         self.p_path = p_path
         self.q_path = q_path
@@ -143,9 +149,14 @@ class DenseRetrieval:
                 doc_scores, doc_indices = self.get_relevant_doc_bulk(query_or_dataset['question'], k=topk)
             for idx, example in enumerate(tqdm(query_or_dataset, desc="Dense retrieval: ")):
                 # relev_doc_ids = [el for i, el in enumerate(self.ids) if i in doc_indices[idx]]
+                def normalize(x):
+                    arr = np.array(x)
+                    return list(arr/np.linalg.norm(arr))
+                '''
                 def softmax(x):
                     e_x = np.exp(x - np.max(x))
                     return e_x / e_x.sum()
+                '''
                 # doc_scores = softmax(doc_scores)
                 tmp = {
                     "question": example["question"],
@@ -153,12 +164,12 @@ class DenseRetrieval:
                     "context_id": doc_indices[idx],  # retrieved id
                     "context" : [self.contexts[i] for i in doc_indices[idx]],
                                 # self.contexts[doc_indices[idx][0]]   retrieved doument
-                    "scores" : softmax([x/200 for x in doc_scores[idx]])
+                    "scores" : normalize(doc_scores[idx]) # softmax([x/200 for x in doc_scores[idx]])
                 }
                 if 'context' in example.keys() and 'answers' in example.keys():
                     tmp["original_context"] = example['context']  # original document
                     tmp["answers"] = example['answers']           # original answer
-                    tmp["id"] = example['doc_id']
+                    tmp["id"] = example['document_id']
                 total.append(tmp)
 
             cqas = pd.DataFrame(total)

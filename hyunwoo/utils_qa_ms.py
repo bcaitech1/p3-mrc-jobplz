@@ -21,37 +21,24 @@ import json
 import logging
 import os
 from typing import Optional, Tuple
-from pororo import Pororo
 
 import numpy as np
 from tqdm.auto import tqdm
-from konlpy.tag import Mecab, Kkma
+from konlpy.tag import Mecab
 
 import torch
 import random
 from transformers import is_torch_available, PreTrainedTokenizerFast
 from transformers.trainer_utils import get_last_checkpoint
-
+from datasets import load_dataset, load_from_disk, concatenate_datasets
+from pororo import Pororo
 logger = logging.getLogger(__name__)
 
-mecab = Mecab()
-pos_tagger = Kkma()
-
-def delete_josa(sentence):
-    # if last pos is josa, delete it
-    if len(sentence) == 0:
-        return sentence
-    last_pos = pos_tagger.pos(sentence)[-1]
-    if last_pos[1][0] == 'J':
-        return sentence[:-len(last_pos[0])]
-    else:
-        return sentence
-
-mecab_tokenizer = Pororo(task='tokenize', lang='ko', model = "mecab.bpe64k.ko") 
-
+pororo_tok = Pororo(task='tokenize', lang='ko', model = "mecab.bpe64k.ko")  # 제일 좋음 무조건 이거써야함 32보다 64가 조금 더 좋음    
 def tokenize(text):
     # return text.split(" ")
-    return  mecab_tokenizer(text)
+    return pororo_tok(text)
+
 
 def set_seed(seed: int):
     """
@@ -77,12 +64,11 @@ def postprocess_qa_predictions(
     predictions: Tuple[np.ndarray, np.ndarray],
     version_2_with_negative: bool = False,
     n_best_size: int = 20,
-    max_answer_length: int = 30,
+    max_answer_length: int = 20,
     null_score_diff_threshold: float = 0.0,
     output_dir: Optional[str] = None,
     prefix: Optional[str] = None,
     is_world_process_zero: bool = True,
-    retrieve_topk: int = 1,
 ):
     """
     Post-processes the predictions of a question-answering model to convert them to answers that are substrings of the
@@ -116,8 +102,6 @@ def postprocess_qa_predictions(
             If provided, the dictionaries mentioned above are saved with `prefix` added to their names.
         is_world_process_zero (:obj:`bool`, `optional`, defaults to :obj:`True`):
             Whether this process is the main process or not (used to determine if logging/saves should be done).
-        retrieve_topk:
-            retriever's topk num
     """
     assert (
         len(predictions) == 2
@@ -132,7 +116,7 @@ def postprocess_qa_predictions(
     example_id_to_index = {k: i for i, k in enumerate(examples["id"])}
     features_per_example = collections.defaultdict(list)
     for i, feature in enumerate(features):
-        features_per_example[example_id_to_index[feature["example_id"]]].append(i)
+        features_per_example[example_id_to_index[feature["example_id"]]].append(i) # 어느 질문에 속하는 답인가?
 
     # The dictionaries we have to fill.
     all_predictions = collections.OrderedDict()
@@ -216,22 +200,43 @@ def postprocess_qa_predictions(
                                 offset_mapping[start_index][0],
                                 offset_mapping[end_index][1],
                             ),
-                            "score": start_logits[start_index] + end_logits[end_index],
+                            "score": (start_logits[start_index] + end_logits[end_index]),
+                            "doc_score": features[feature_index]['scores'],
+                            'ctx_rank' : features[feature_index]['ctx_rank'],
                             "start_logit": start_logits[start_index],
                             "end_logit": end_logits[end_index],
                         }
                     )
-
-        
-
         if version_2_with_negative:
             # Add the minimum null prediction
             prelim_predictions.append(min_null_prediction)
             null_score = min_null_prediction["score"]
+        
+        # Compute the softmax of all scores (we do it with numpy to stay independent from torch/tf in this file, using
+        # the LogSumExp trick).
+        def softmax(x):
+            e_x = np.exp(x - np.max(x))
+            return e_x / e_x.sum() 
+        def normalize(x):
+            arr = np.array(x)
+            return arr/np.linalg.norm(arr)
 
+        n_scores = np.array([pred.pop("score") for pred in prelim_predictions])
+        n_scores = normalize(n_scores)
+        n_starts = np.array([pred.pop("start_logit") for pred in prelim_predictions])
+        n_starts = normalize(n_starts)
+        n_ends = np.array([pred.pop("end_logit") for pred in prelim_predictions])
+        n_ends = normalize(n_ends)
+        n_doc_scores = np.array([pred.pop("doc_score") for pred in prelim_predictions])
+        n_doc_scores = normalize(n_doc_scores)
+        probs = n_starts + n_ends + n_doc_scores
+
+        # Include the probabilities in our predictions.
+        for prob, pred in zip(probs, prelim_predictions):
+            pred["probability"] = prob 
         # Only keep the best `n_best_size` predictions.
         predictions = sorted(
-            prelim_predictions, key=lambda x: x["score"], reverse=True
+            prelim_predictions, key=lambda x: x["probability"], reverse=True
         )[:n_best_size]
 
         # Add back the minimum null prediction if it was removed because of its low score.
@@ -244,7 +249,8 @@ def postprocess_qa_predictions(
         context = example["context"]
         for pred in predictions:
             offsets = pred.pop("offsets")
-            pred["text"] = context[offsets[0] : offsets[1]]
+            ctx_rank = pred.pop('ctx_rank')
+            pred["text"] = context[ctx_rank][offsets[0] : offsets[1]]
 
         # In the very rare edge case we have not a single non-null prediction, we create a fake prediction to avoid
         # failure.
@@ -254,16 +260,6 @@ def postprocess_qa_predictions(
             predictions.insert(
                 0, {"text": "empty", "start_logit": 0.0, "end_logit": 0.0, "score": 0.0}
             )
-
-        # Compute the softmax of all scores (we do it with numpy to stay independent from torch/tf in this file, using
-        # the LogSumExp trick).
-        scores = np.array([pred.pop("score") for pred in predictions])
-        exp_scores = np.exp(scores - np.max(scores))
-        probs = exp_scores / exp_scores.sum()
-
-        # Include the probabilities in our predictions.
-        for prob, pred in zip(probs, predictions):
-            pred["probability"] = prob
 
         # Pick the best prediction. If the null answer is not possible, this is easy.
         if not version_2_with_negative:
@@ -287,7 +283,6 @@ def postprocess_qa_predictions(
             if score_diff > null_score_diff_threshold:
                 all_predictions[example["id"]] = ""
             else:
-                print(best_non_null_pred["text"])
                 all_predictions[example["id"]] = best_non_null_pred["text"]
 
         # Make `predictions` JSON-serializable by casting np.float back to float.
@@ -302,34 +297,7 @@ def postprocess_qa_predictions(
             }
             for pred in predictions
         ]
-    # **************************** 우리가 후처리 하기 좋은곳 - start
-    '''
-    # choose the best answer with retriever's topk score
-    if retrieve_topk > 1:
-        tmp_predictions= list(all_predictions.items())
-        tmp_scores = list(all_nbest_json.values())
-        tmp_all_predictions = collections.OrderedDict()
 
-        for idx in tqdm(range(0,len(all_predictions),retrieve_topk)):
-            mrc_probs = np.array([tmp_scores[i][0]["probability"] for i in range(idx,idx+retrieve_topk)])
-
-            # compute retrieve_probs
-            retrieve_scores = np.array([examples['score'][i] for i in range(idx, idx+retrieve_topk)])
-            exp_scores = np.exp(retrieve_scores - np.max(retrieve_scores))
-            retrieve_probs = exp_scores / exp_scores.sum()
-
-            # choose the best answer
-            best_answer = np.argmax(mrc_probs * retrieve_probs)
-            tmp_all_predictions[tmp_predictions[idx+best_answer][0][:-3]] = tmp_predictions[idx+best_answer][1] 
-    
-        all_predictions = tmp_all_predictions
-    '''
-    # delete josa
-    for k, v in all_predictions.items():
-        all_predictions[k] = delete_josa(v)
-
-    # **************************** 우리가 후처리 하기 좋은곳 - end
-        
     # If we have an output_dir, let's save all those dicts.
     if output_dir is not None:
         assert os.path.isdir(output_dir), f"{output_dir} is not a directory."
@@ -402,3 +370,25 @@ def check_no_error(training_args, data_args, tokenizer, datasets):
     if "validation" not in datasets:
         raise ValueError("--do_eval requires a validation dataset")
     return last_checkpoint, max_seq_length
+
+def get_datasets(dataset_name):
+    if dataset_name == 'KLUE':
+        return load_from_disk("/opt/ml/input/data/data/train_dataset")
+    elif dataset_name == 'Korquad':
+        return load_dataset("squad_kor_v1")
+    elif dataset_name == 'Both':
+        klue = load_from_disk('/opt/ml/input/data/data/train_dataset')
+        kqd = load_dataset("squad_kor_v1")
+        klue_train = klue['train'].map(
+                                        features=kqd['train'].features, 
+                                        remove_columns=['document_id', '__index_level_0__'], 
+                                        keep_in_memory=False
+                                        )
+        klue_valid = klue['validation'].map(
+                                            features=kqd['validation'].features, 
+                                            remove_columns=['document_id', '__index_level_0__'], 
+                                            keep_in_memory=False
+                                            )
+        kqd['train'] = concatenate_datasets([kqd['train'].flatten_indices(), klue_train.flatten_indices()])
+        kqd['validation'] = concatenate_datasets([kqd['validation'].flatten_indices(),klue_valid.flatten_indices()])
+        return kqd        

@@ -9,6 +9,8 @@ import logging
 import os
 import sys
 from datasets import load_metric, load_from_disk, Sequence, Value, Features, Dataset, DatasetDict
+from collections import defaultdict
+import re
 
 from transformers import AutoConfig, AutoModelForQuestionAnswering, AutoTokenizer
 
@@ -20,10 +22,10 @@ from transformers import (
     set_seed,
 )
 
-from utils_qa import postprocess_qa_predictions, check_no_error, tokenize
+from utils_qa_ms import postprocess_qa_predictions, check_no_error, tokenize
 from trainer_qa import QuestionAnsweringTrainer
-from retrieval import SparseRetrieval
-from DPR import DenseRetrieval
+from ms_retrieval import SparseRetrieval
+from retrieval_dense import DenseRetrieval
 
 from arguments import (
     ModelArguments,
@@ -97,33 +99,44 @@ def main():
 def run_sparse_retrieval(datasets, training_args, data_args):
     #### retreival process ####
     # test code
-    # datasets['validation'] = datasets['validation'].select(range(10))
+    datasets['validation'] = datasets['validation']
     
     # sparse Retrieval
-    retriever = SparseRetrieval(tokenize_fn=tokenize,
+    sparse_retriever = SparseRetrieval(tokenize_fn=tokenize,
                                data_path="/opt/ml/input/data/data",
                                context_path="wikipedia_documents.json")
     #
     # sparse_embedding
-    retriever.get_sparse_embedding()
-    df = retriever.retrieve(datasets['validation'], topk=data_args.retrieve_topk)
+    sparse_retriever.get_sparse_embedding()
+    df_sparse = sparse_retriever.retrieve(datasets['validation'], topk=data_args.retrieve_topk)
 
     # dense Retrieval
-    # retriever = DenseRetrieval(data_path="/opt/ml/input/data/data",
-    #                            context_path="wikipedia_documents.json")
+    dense_retriever = DenseRetrieval(p_path='thingsu/koDPR_context', q_path='thingsu/koDPR_question',
+                                bert_path='kykim/bert-kor-base')
     
     # dense_embedding
-    # retriever.get_embedding()
-    # df = retriever.retrieve(datasets['validation'], topk=data_args.retrieve_topk)
+    dense_retriever.get_dense_embedding()
+    df_dense = dense_retriever.retrieve(datasets['validation'], topk=data_args.retrieve_topk)
+
+    # merging_embeddings
+    df = merging_retrieval(df_sparse, df_dense, dense_retriever.contexts, topk=data_args.retrieve_topk)
 
     # faiss retrieval
     # df = retriever.retrieve_faiss(dataset['validation'])
 
     if training_args.do_predict: # test data 에 대해선 정답이 없으므로 id question context 로만 데이터셋이 구성됩니다.
+        '''
         f = Features({'context': Value(dtype='string', id=None),
                       'id': Value(dtype='string', id=None),
                       'question': Value(dtype='string', id=None)})
                       # 'score': Value(dtype='float32', id=None)})
+        '''
+        f = Features({'context': Sequence(feature=Value(dtype='string', id=None), length=-1, id=None),
+                      'id': Value(dtype='string', id=None),
+                      'question': Value(dtype='string', id=None),
+                      'scores': Sequence(feature=Value(dtype='float64', id=None), length=-1, id=None),
+                      "context_id" : Sequence(feature=Value(dtype='int32', id=None), length=-1, id=None),
+                      })
 
     elif training_args.do_eval: # train data 에 대해선 정답이 존재하므로 id question context answer 로 데이터셋이 구성됩니다.
         f = Features({'answers': Sequence(feature={'text': Value(dtype='string', id=None),
@@ -150,6 +163,61 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
 
     # check if there is an error
     last_checkpoint, max_seq_length = check_no_error(training_args, data_args, tokenizer, datasets)
+
+    def prepare_validation_features_ms(examples):
+        # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
+        # in one example possible giving several features when a context is long, each of those features having a
+        # context that overlaps a bit the context of the previous feature.
+        context_length = [len(cs) for cs in examples[context_column_name]]
+        cumulative = [sum(context_length[:k]) for k, _ in enumerate(context_length)]
+        question = [q for q, l in zip(examples[question_column_name],context_length) for _ in range(l)]
+        context  = [c for cs in examples[context_column_name] for c in cs]
+        
+        tokenized_examples = tokenizer(
+            question if pad_on_right else context,
+            context if pad_on_right else question,
+            truncation="only_second" if pad_on_right else "only_first",
+            max_length=max_seq_length,
+            stride=data_args.doc_stride,
+            return_overflowing_tokens=True,
+            return_offsets_mapping=True,
+            padding="max_length" if data_args.pad_to_max_length else False,
+        )
+
+        # Since one example might give us several features if it has a long context, we need a map from a feature to
+        # its corresponding example. This key gives us just that.
+        sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
+
+        # For evaluation, we will need to convert our predictions to substrings of the context, so we keep the
+        # corresponding example_id and we will store the offset mappings.
+        tokenized_examples["example_id"] = []
+        tokenized_examples['ctx_rank'] = []
+        tokenized_examples['scores'] = []
+        
+        on = 0
+        cumulative.append(sum(context_length))
+        # doc score 추가!
+        for i in range(len(tokenized_examples["input_ids"])):
+            # Grab the sequence corresponding to that example (to know what is the context and what is the question).
+            sequence_ids = tokenized_examples.sequence_ids(i)
+            context_index = 1 if pad_on_right else 0
+
+            # One example can give several spans, this is the index of the example containing this span of text.
+            while cumulative[on+1] <= sample_mapping[i] :
+                on += 1
+            sample_index = on # sample_mapping[i] // topk
+            rank_index = sample_mapping[i] - cumulative[on] # sample_mapping[i] % topk
+            tokenized_examples["example_id"].append(examples["id"][sample_index])
+            tokenized_examples['ctx_rank'].append(rank_index)
+            tokenized_examples['scores'].append(examples["scores"][sample_index][rank_index])
+
+            # Set to None the offset_mapping that are not part of the context so it's easy to determine if a token
+            # position is part of the context or not.
+            tokenized_examples["offset_mapping"][i] = [
+                (o if sequence_ids[k] == context_index else None)
+                for k, o in enumerate(tokenized_examples["offset_mapping"][i])
+            ]
+        return tokenized_examples
 
     # Validation preprocessing
     def prepare_validation_features(examples):
@@ -196,7 +264,7 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
 
     # Validation Feature Creation
     eval_dataset = eval_dataset.map(
-        prepare_validation_features,
+        prepare_validation_features_ms,
         batched=True,
         num_proc=data_args.preprocessing_num_workers,
         remove_columns=column_names,
@@ -219,8 +287,7 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
             features=features,
             predictions=predictions,
             max_answer_length=data_args.max_answer_length,
-            output_dir=training_args.output_dir,
-            retrieve_topk=data_args.retrieve_topk,
+            output_dir=training_args.output_dir
         )
         # Format the result to the format the metric expects.
         formatted_predictions = [
@@ -271,6 +338,43 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
 
         trainer.log_metrics("test", metrics)
         trainer.save_metrics("test", metrics)
+
+
+def merging_retrieval(df_sparse, df_dense, contexts, topk=30):
+    k = 1.1
+    
+    dict_context_list = []
+    for idx in range(len(df_sparse)):
+        dict_context = defaultdict(float)
+        data = df_sparse.loc[idx]
+        for context_id, score in zip(data['context_id'], data['scores']):
+            dict_context[context_id] = score
+        dict_context_list.append(dict_context)
+
+    for idx, dict_context in enumerate(dict_context_list):
+        data = df_dense.loc[idx]
+        for context_id, score in zip(data['context_id'], data['scores']):
+            dict_context[context_id] += k * score
+
+    context_score_pair_list = []
+    for dict_context in dict_context_list:
+        tmp_list = list(dict_context.items())
+        tmp_list.sort(key=lambda x : x[1], reverse=True)
+        context_score_pair_list.append(tmp_list)
+    
+    for idx in range(len(df_sparse)):
+        tmp_id_list = [cxt_id[0] for cxt_id in context_score_pair_list[idx]]
+        merging_cxt = []
+        for cxt_id in tmp_id_list[:topk]:
+            tmp_context = contexts[cxt_id]
+            tmp_context = re.sub(r'\\n','\n', tmp_context) 
+            tmp_context = re.sub(r'( )+',' ', tmp_context)
+            merging_cxt.append(tmp_context)
+        df_sparse.loc[idx]['context'] = merging_cxt
+        df_sparse.loc[idx]['context_id'] = tmp_id_list[:topk]
+        df_sparse.loc[idx]['socre'] = [cxt_id[1] for cxt_id in context_score_pair_list[idx]][:topk]
+    
+    return df_sparse
 
 if __name__ == "__main__":
     main()
