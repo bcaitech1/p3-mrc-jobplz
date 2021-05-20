@@ -25,7 +25,7 @@ from transformers import (
 )
 import pickle
 
-from utils_qa import postprocess_qa_predictions, check_no_error, tokenize
+from utils_qa_myeongsu import postprocess_qa_predictions, check_no_error, tokenize
 from trainer_qa import QuestionAnsweringTrainer
 from retrieval import SparseRetrieval
 import re
@@ -98,7 +98,7 @@ def elastic_search(topk, post_type) :
                 pp = pure_doc.replace('▁', ' ')
 
                 doc.append(pp)
-            doczz = '\n'.join(doc)
+            doczz = '\n'.join(doc) 
             dataset_context.append(doczz)
 
         df = pd.DataFrame({'id' : dataset_id, 'question' : dataset_question, 'context' : dataset_context})

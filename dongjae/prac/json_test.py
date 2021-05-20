@@ -1,6 +1,5 @@
 import json
 from datasets import load_from_disk, load_dataset
-from rank_bm25 import BM25Plus
 from konlpy.tag import Mecab
 import re
 from pororo import Pororo
@@ -222,11 +221,11 @@ for d in data :
 # p1 = '/opt/ml/results/predictions/xlm-roberta-large-squad/sublinear/wiki_kss_1280_epoch2-topk20/predictions.json'
 # p7 = '/opt/ml/results/predictions/xlm-roberta-large-squad/sublinear/wiki_kss_1280_epoch2-topk30/predictions.json'
 # p7 = '/opt/ml/results/predictions/xlm-roberta-large-squad/wiki_kss_1280_epoch2-topk25/predictions.json'
-# p8 = '/opt/ml/results/predictions/xlm-roberta-large-squad/wiki_kss_1280_epoch2-topk30/predictions.json'
+p1 = '/opt/ml/results/predictions/xlm-roberta-large-squad/elastic/connect/topk30/predictions.json'
 # p9 = '/opt/ml/results/predictions/xlm-roberta-large-squad/wiki_kss_1280_epoch2-topk15/predictions.json'
 
-p1 = '/opt/ml/results/predictions/xlm-roberta-large-squad/elastic/score/topk20/predictions.json'
-p7 = '/opt/ml/results/predictions/xlm-roberta-large-squad/elastic/score/topk30/predictions.json'
+# p1 = '/opt/ml/prac/pred72.json'
+p7 = '/opt/ml/prac/pred80.json'
 with open(p1) as p1_file:
     p1_data = json.load(p1_file).items()
 with open(p7) as p7_file:

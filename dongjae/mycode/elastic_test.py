@@ -5,105 +5,116 @@ import json
 import pandas as pd
 from tqdm import tqdm
 import kss
+from datasets import load_from_disk, Sequence, Value, Features, Dataset, DatasetDict
+
+import konlpy.tag as tag
+import logging
+import os
+import sys
+from datasets import load_metric, load_from_disk, Sequence, Value, Features, Dataset, DatasetDict
+
+from transformers import AutoConfig, AutoModelForQuestionAnswering, AutoTokenizer
+
+from transformers import (
+    DataCollatorWithPadding,
+    EvalPrediction,
+    HfArgumentParser,
+    TrainingArguments,
+    set_seed,
+)
+
+from utils_qa import postprocess_qa_predictions, check_no_error, tokenize
+from trainer_qa import QuestionAnsweringTrainer
+from retrieval import SparseRetrieval
 import re
-# 서버 실행
-es_server = Popen(['/opt/ml/elasticsearch-7.9.2/bin/elasticsearch'], stdout=PIPE, stderr=STDOUT, preexec_fn=lambda:os.setuid(1))
+import pickle
+
+from arguments import (
+    ModelArguments,
+    DataTrainingArguments,
+)
+
 
 es = Elasticsearch('localhost:9200')
 
-print(es.info())
+dataset = load_from_disk('/opt/ml/input/data/data/test_dataset')
 
-es.indices.create(index = 'document_kss',
-                  body = {
-                      'settings':{
-                          'analysis':{
-                              'analyzer':{
-                                  'my_analyzer':{
-                                      "type": "custom",
-                                      'tokenizer':'nori_tokenizer',
-                                      'decompound_mode':'mixed',
-                                      'stopwords':'_korean_',
-                                      "filter": ["lowercase",
-                                                 "my_shingle_f",
-                                                 "nori_readingform",
-                                                 "nori_number"]
-                                  }
-                              },
-                              'filter':{
-                                  'my_shingle_f':{
-                                      "type": "shingle"
-                                  }
-                              }
-                          },
-                          'similarity':{
-                              'my_similarity':{
-                                  'type':'BM25',
-                              }
-                          }
-                      },
-                      'mappings':{
-                          'properties':{
-                              'title':{
-                                  'type':'text',
-                                  'analyzer':'my_analyzer',
-                                  'similarity':'my_similarity'
-                              },
-                              'text':{
-                                  'type':'text',
-                                  'analyzer':'my_analyzer',
-                                  'similarity':'my_similarity'
-                              }
-                          }
-                      }
-                  }
-                  )
+dataset = dataset['validation']
+# # 기본
+dataset_question = dataset['question']
+# print(dataset_question)
+dataset_id = dataset['id']
+dataset_context = []
 
-print(es.indices.get('document_kss'))
+# ES 진행
+def elastic_search(topk, post_type) :
+    # single - 하나로 이어서
+    if not post_type :
+        print(f'start single -- {topk} document')
+        for question in tqdm(dataset_question) :
+            query = {
+                'query':{
+                    'bool':{
+                        'must':[
+                                {'match':{'text':question}}
+                        ],
+                        'should':[
+                                {'match':{'text':question}}
+                        ]
+                    }
+                }
+            }
 
+            docs = es.search(index='document_original',body=query,size=topk)['hits']['hits']
+            doc = '\n\n'.join([v['_source']['text'] for v in docs]) 
+            dataset_context.append(doc)
 
-# trash_ids = [973, 4525, 4526, 4527, 4528, 4529, 4530, 4531, 4532, 4533, 4534, 5527,
-#              9079, 9080, 9081, 9082, 9083, 9084, 9085, 9086, 9087, 9088, 28989, 29028,
-#               31111, 37157]
+        df = pd.DataFrame({'id' : dataset_id, 'question' : dataset_question, 'context' : dataset_context})
 
+        f = Features({'context': Value(dtype='string', id=None),
+                        'id': Value(dtype='string', id=None),
+                        'question': Value(dtype='string', id=None)})
+        
+        datasets = DatasetDict({'validation': Dataset.from_pandas(df, features=f)})
+        return datasets
+    # score
+    else :
+        dataset_score = []
+        dataset_context_id = []
+        print(f'start score documents -- {topk} document')
+        for i, question in tqdm(enumerate(dataset_question)) :
+            query = {
+                'query':{
+                    'bool':{
+                        'must':[
+                                {'match':{'text':question}}
+                        ],
+                        'should':[
+                                {'match':{'text':question}}
+                        ]
+                    }
+                }
+            }
 
-with open('/opt/ml/input/data/data/wikipedia_documents.json', 'r') as f :
-    # wiki_data = pd.DataFrame(json.load(f)).transpose()
-    wiki = json.load(f)
+            docs = es.search(index='document_original_set',body=query,size=topk)['hits']['hits']
+            dataset_context.append([doc['_source']['text'] for doc in docs])
+            dataset_score.append([doc['_score'] for doc in docs])
+            dataset_context_id.append([doc['_source']['title'] for doc in docs])
 
-new_wiki = [(v['title'], v['text'].strip()) for v in wiki.values() if v['document_id']]
-new_wiki_title = []
-new_wiki_text = []
+        df = pd.DataFrame({'question' : dataset_question, 'id' : dataset_id, 'context_id' : dataset_context_id, 'context' : dataset_context, 'scores' : dataset_score})
 
-for current_title, current_text in tqdm(new_wiki) :
-    try :
-        te = kss.split_chunks(current_text, max_length= 1280, overlap = True)
-        for i in range(len(te)) :
-            new_wiki_title.append(current_title + str(i))
-            new_wiki_text.append(te[i].text)
-    except :
-        new_wiki_title.append(current_title)
-        new_wiki_text.append(current_text)
-        continue
+        return df
 
-print('start elastic search indexing')
-for num in tqdm(range(len(new_wiki))) :
-    es.index(index = 'document_kss', body = {"title" : new_wiki[num][0], 'text' : new_wiki[num][1]})
+# topk
+topk = int(input('topk -> '))
+post_type = int(input('type 0(single) / 1(score) -> '))
 
-question = '대한민국의 대통령은 누구인가?'
+# 데이터셋 생성
+print('make new dataset!!!')
+datasets = elastic_search(topk, post_type)
 
-query = {
-    'query':{
-        'bool':{
-            'must':[
-                      {'match':{'text':question}}
-            ],
-            'should':[
-                      {'match':{'text':question}}
-            ]
-        }
-    }
-}
+data_path = '/opt/ml/input/data/data'
+topk100_set_pickle = 'topk100_set.pickle'
 
-doc = es.search(index='document_kss',body=query,size=10)['hits']['hits']
-
-print(doc)
+with open(os.path.join(data_path, topk100_set_pickle), "wb") as file:
+    pickle.dump(datasets, file)
