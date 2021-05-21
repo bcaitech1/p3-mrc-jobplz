@@ -24,8 +24,6 @@ from arguments import (
     OtherArguments
 )
 
-from adamp import AdamP
-from torch.optim.lr_scheduler import CosineAnnealingLR
 
 logger = logging.getLogger(__name__)
 
@@ -346,7 +344,8 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
     training_args.metric_for_best_model="loss"
     training_args.evaluation_strategy = "epoch"
     # Initialize our Trainer
-    
+    from adamp import AdamP
+    from torch.optim.lr_scheduler import CosineAnnealingLR
     # define your params
     optimizer = AdamP(model.parameters(),lr=1e-5, betas=(0.9, 0.999), weight_decay=1e-2)
     trainer = QuestionAnsweringTrainer(

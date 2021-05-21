@@ -10,7 +10,7 @@ import pandas as pd
 
 from tqdm.notebook import tqdm
 # from tqdm import tqdm
-# modify
+
 import re
 from tqdm.auto import tqdm
 import pandas as pd
@@ -31,6 +31,7 @@ from contextlib import contextmanager
 import kss
 import pickle
 
+
 @contextmanager
 def timer(name):
     t0 = time.time()
@@ -38,7 +39,7 @@ def timer(name):
     print(f'[{name}] done in {time.time() - t0:.3f} s')
 
 class ElasticRetrieval:
-    def __init__(self, tokenize_fn, data_path="/opt/ml/code/data/", context_path="wikipedia_documents.json"):
+    def __init__(self, tokenize_fn, data_path="/opt/ml/code/dongjae/mycode/data/", context_path="wikipedia_documents.json"):
         # self.query_or_dataset=query_or_dataset
         # self.topk=topk
         self.data_path=data_path
@@ -63,31 +64,67 @@ class ElasticRetrieval:
         es,es_server = self.connect()
         
         print(es.info())
+        if not es.indices.exists(index="document"):
+            try:
+                self.indices_create(es)
+            except:
+                es.indices.delete('document')
+                self.indices_create(es)
 
-        try:
-            self.indices_create(es)
-        except:
-            es.indices.delete('document')
-            self.indices_create(es)
-
-        with open('/opt/ml/code/data/wikipedia_documents.json', 'r') as f:
+        with open('/opt/ml/code/dongjae/data/wikipedia_documents.json', 'r') as f:
             wiki_data = pd.DataFrame(json.load(f)).transpose()
 
         trash_ids = [973, 4525, 4526, 4527, 4528, 4529, 4530, 4531, 4532, 4533, 4534, 5527,
              9079, 9080, 9081, 9082, 9083, 9084, 9085, 9086, 9087, 9088, 28989, 29028,
               31111, 37157]
 
-        for num in tqdm(range(len(wiki_data))):
-            if num not in trash_ids:
-                context = wiki_data['text'][num]
-                try:
-                    te = kss.split_chunks(context, max_length=1280,overlap=True)
-                    for v in te:
-                        es.index(index='document', body = {"title" : wiki_data['title'][num], "text" : v})
-                except:
-                    es.index(index='document', body = {"title" : wiki_data['title'][num], "text" : context})
-                    continue
+        # new_wiki = [(vv[:10], vv.strip()) for vv in list(dict.fromkeys([v['text'] for v in wiki_data.values()]))]
+        # new_wiki_title = []
+        # new_wiki_text = []
+
+        # for current_title, current_text in tqdm(new_wiki) :
+        #     try :
+        #         te = kss.split_chunks(current_text, max_length= 1280, overlap = True)
+        #         for i in range(len(te)) :
+        #             new_wiki_title.append(current_title + str(i))
+        #             new_wiki_text.append(te[i].text)
+        #     except :
+        #         new_wiki_title.append(current_title)
+        #         new_wiki_text.append(current_text)
+        #         continue
+
+        # print('start elastic search indexing')
+        # for num in tqdm(range(len(new_wiki))) :
+        #     es.index(index = 'document', body = {"title" : new_wiki_title[num], 'text' : new_wiki_text[num], "context_id" : num})
+
+        # for num in tqdm(range(len(wiki_data))):
+        #     if num not in trash_ids:
+        #         es.index(index='document', body = {"title" : wiki_data['title'][num], "text" : wiki_data['text'][num]})
+        # cnt=1
+        # m=1
+        # # for num in tqdm(range(len(wiki_data))):
+        # for num in range(len(wiki_data)):
+        #     if num not in trash_ids:
+        #         # ' '.join(re.sub(r'''[^ \r\nㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z0-9~₩!@#$%^&*()_+|{}:"<>?`\-=\\[\];',.\/]''', ' ', str(x.lower().strip())).split())
+        #         context = wiki_data['text'][num]
+        #         x = str(context)
+        #         # context = ' '.join(re.sub(r'''[^ \r\nㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z0-9~₩!@#$%^&*()_+|{}:"<>?`\-=\\[\];',.\/]''', ' ', str(x.lower().strip())).split())
+        #         try:
+        #             te = kss.split_chunks(context, max_length=1280,overlap=True)
+        #             m = max(len(te),m)
+        #             for v in te:
+        #                 es.index(index='document', body = {"title" : wiki_data['title'][num], "text" : v['text'], "context_id": cnt})
+        #                 cnt+=1
+        #                 print(f"cnt : {cnt}")
+        #         except:
+        #             es.index(index='document', body = {"title" : wiki_data['title'][num], "text" : context, "context_id" : cnt})
+        #             cnt+=1
+        #             continue
+
         
+
+        # print(f"context의 개수 {str(cnt)}")
+        # print(f"최대 조각 : {str(m)}")
         if isinstance(query_or_dataset, str):
             # doc_scores, doc_indices = self.get_relevant_doc(query_or_dataset, k=topk)
             print("[Search query]\n", query_or_dataset, "\n")
@@ -106,7 +143,7 @@ class ElasticRetrieval:
                     }
 
             doc = es.search(index='document',body=query,size=topk)['hits']['hits']
-            print(len(doc))
+            print("문서 길이 :",len(doc))
             doc_scores=[]
             doc_contexts=[]
             for idx,i in enumerate(doc):
@@ -147,7 +184,8 @@ class ElasticRetrieval:
                 for idx,i in enumerate(doc):
                     doc_scores.append(i['_score'])
                     doc_contexts.append(i['_source']['text'])
-                    doc_contexts_ids.append(i['_id'])
+                    # doc_contexts_ids.append(i['_id'])
+                    doc_contexts_ids.append(i['_source']['context_id'])
                     
                 
                 tmp = {
