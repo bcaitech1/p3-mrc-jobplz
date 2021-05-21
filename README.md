@@ -8,9 +8,6 @@ p3-mrc-jobplz created by GitHub Classroom
 =======
 # 석환님 봐주세요
 
-# branch test
->>>>>>> 84ad716ff298581078006e4e0ea13832e6414bb4
-
 # HELL WORLD!!
 
 # We are handsome!
