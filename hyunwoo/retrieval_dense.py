@@ -75,14 +75,15 @@ class DenseRetrieval:
         if context_path[-5:] == 'pickle':
             with open(os.path.join(data_path, context_path), "rb") as f:
                 wiki = pickle.load(f)
-
-            self.contexts = wiki # set 은 매번 순서가 바뀌므로
+            self.contexts = wiki 
             self.ids = list(range(len(self.contexts)))
+
         elif context_path[-4:] == 'json':
             with open(os.path.join(data_path, context_path), "r") as f:
                 wiki = json.load(f)                
             # set 은 매번 순서가 바뀌므로
             self.contexts = list(dict.fromkeys([v['text'] for v in wiki.values()]))
+            
         else :
             wiki = pd.read_csv(os.path.join(data_path, context_path))
             self.contexts = list(wiki['context'])

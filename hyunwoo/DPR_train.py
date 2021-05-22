@@ -49,6 +49,7 @@ def main():
     dataset_KLUE = load_from_disk('/opt/ml/input/data/data/train_dataset')
     dataset = load_dataset("squad_kor_v1")
 
+    # mapping KLUE dataset to korquad dataset's features
     dataset_KLUE_train = dataset_KLUE['train'].map(features=dataset['train'].features, 
                                                     remove_columns=['document_id', '__index_level_0__'], 
                                                     keep_in_memory=True)
@@ -57,6 +58,7 @@ def main():
                                                     remove_columns=['document_id', '__index_level_0__'], 
                                                     keep_in_memory=True)
     
+    # concatenate datasets
     dataset['train'] = concatenate_datasets([dataset_KLUE_train, dataset['train'].select(range(3900))])
     dataset['validation'] = concatenate_datasets([dataset_KLUE_valid, dataset['validation'].select(range(1000))])
 
@@ -72,9 +74,9 @@ def main():
     tokenizer = KoBertTokenizer.from_pretrained(model_name)
 
     # tokenize data
-    training_dataset = dataset['train'] # .select(range(10))
+    training_dataset = dataset['train'] # for test  .select(range(10))
 
-    # difficult_problem
+    # make difficult negative samples
     print('make negative sample')
     gold_list = [re.sub(r'( )+' ,' ', cxt) for cxt in training_dataset['context']]
     gold_list = [re.sub(r'\\n', '\n', cxt) for cxt in gold_list]
@@ -165,7 +167,7 @@ def main():
     q_encoder.save_pretrained(os.path.join(args.output_dir, 'q_encoder'), save_config=True)
 
 class MyDataset(torch.utils.data.Dataset):
-    """Some Information about MyDataset"""
+    """Dataset for p_seqs, q_seqs, negative samples"""
     def __init__(self, p_seqs, q_seqs, negative_token_list):
         super(MyDataset, self).__init__()
         self.p_seqs = p_seqs
@@ -253,6 +255,7 @@ def train(args, train_dataset, valid_dataset, p_model, q_model):
         q_model.train()
 
         for step, batch in enumerate(epoch_iterator):
+            # concatenate negative samples and p_seqs
             batch[0] = torch.cat((batch[0], batch[6]), dim=0)
             batch[1] = torch.cat((batch[1], batch[7]), dim=0)
             batch[2] = torch.cat((batch[2], batch[8]), dim=0)

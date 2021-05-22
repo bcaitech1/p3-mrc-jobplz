@@ -131,6 +131,8 @@ def run_sparse_retrieval(datasets, training_args, data_args):
                       'question': Value(dtype='string', id=None)})
                       # 'score': Value(dtype='float32', id=None)})
         '''
+
+        # ms_style_feature
         f = Features({'context': Sequence(feature=Value(dtype='string', id=None), length=-1, id=None),
                       'id': Value(dtype='string', id=None),
                       'question': Value(dtype='string', id=None),

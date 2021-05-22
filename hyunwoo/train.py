@@ -52,7 +52,7 @@ def main():
     # Set seed before initializing model.
     set_seed(training_args.seed)
     
-    '''
+    ''' concatenate datasets
     datasets = load_dataset("squad_kor_v1")
     dataset_KLUE = load_from_disk('/opt/ml/input/data/data/train_dataset')
     dataset_KLUE_train = dataset_KLUE['train'].map(features=datasets['train'].features, 
@@ -85,15 +85,15 @@ def main():
         else model_args.model_name_or_path,
     )
     # monologg/kobert
-    tokenizer = KoBertTokenizer.from_pretrained('monologg/kobert')
-    '''
+    # tokenizer = KoBertTokenizer.from_pretrained('monologg/kobert')
+    
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name
         if model_args.tokenizer_name
         else model_args.model_name_or_path,
         use_fast=True,
     )
-    '''
+    
     model = AutoModelForQuestionAnswering.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
