@@ -88,7 +88,7 @@ df_sparse = sparse_retriever.retrieve(datasets['validation'], topk=data_args.ret
 명수님이 구현하신 `utils_qa_ms.py`를 사용하기 위해 명수님의 코드를 사용하였습니다.
 
 사용법은 다음과 같습니다.
-```
+```python3
 from retrieval_dense import DenseRetrieval
 
 dense_retriever = DenseRetrieval(p_path='thingsu/koDPR_context', q_path='thingsu/koDPR_question',
@@ -115,3 +115,18 @@ inference나 train에 필요한 util들이 구현되어 있는 코드입니다.
 명수님이 구현하신 이 util에 맞추기 위해 명수님의 retrieval 구현을 사용하였습니다.
 
 # notebook
+## kss_process
+kss 라이브러리를 이용하여 wiki docs를 일정한 길이로 잘라 저장하는 노트북입니다.
+
+이 과정 중에 데이터에 대해 간단한 전처리를 수행합니다.
+## dense_retrieval_test
+dense retrieval를 테스트합니다.
+
+또한 sparse retrieval과 결합을 테스트합니다.
+
+dense retrieval과 sparse retrieval의 점수를 더해 상위 30개의 문서 중 정답 문서가 들어 있을 확률을 측정합니다.
+
+이 과정에서 dense retrieval에 곱해질 최적의 상수값 k값을 구합니다.
+
+# 결과
+위 코드를 기반으로 p3 competition에서 **EM: 56.25%	F1: 70.68%** 의 점수를 달성할 수 있었습니다.
