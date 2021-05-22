@@ -85,13 +85,10 @@ retriever.get_sparse_embedding()
 df = retriever.retrieve(datasets['validation'], topk)
 
 print('*' * 20, ' Sparse 데이터셋 생성 완료 ', '*' * 20)
+
 '''
     Ground Truth
 '''
-# wiki_path = '/opt/ml/input/data/data/ground_truth.json'
-# with open(wiki_path) as wiki :
-#     wiki_data = json.load(wiki)
-# ground_truth = [v.split(':')[2:][:10] for v in wiki_data.keys()]
 ground_truth = dataset['context']
 
 print(elastic_datasets)
@@ -135,8 +132,8 @@ print('*' * 20, 'topk : ', topk, ' 결과 ', '*' * 20)
 print(f'document_same 평균 : {sum(document_same_list) / data_len}')
 print(f'document_same 최소 : {min(document_same_list)}')
 print(f'document_same 최대 : {max(document_same_list)}', end = '\n\n')
-print(f'elastic ground truth 평균 : {elastic_point / data_len}')
-print(f'sparse ground truth 평균 : {sparse_point / data_len}', end = '\n\n')
+print(f'elastic ground truth topk 평균 : {elastic_point / data_len}')
+print(f'sparse ground truth topk 평균 : {sparse_point / data_len}', end = '\n\n')
 
 print(f'elastic ground truth rank 평균 : {sum(elastic_rank) / data_len}')
 print(f'elastic ground truth rank 최대 : {max(elastic_rank)}')

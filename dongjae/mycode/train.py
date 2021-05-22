@@ -50,9 +50,6 @@ def main():
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
-    '''
-        model 임시 지정 !!!!!
-    '''
     print(f"model is from {model_args.model_name_or_path}")
     print(f"data is from {data_args.dataset_name}")
 
@@ -74,18 +71,6 @@ def main():
 
     # KORQUAD DATASET
     datasets = load_dataset('squad_kor_v1')
-
-    # KLUE + KORQUAD DATASET
-    # datasets = load_dataset("squad_kor_v1")
-    # dataset_KLUE = load_from_disk('/opt/ml/input/data/data/train_dataset')
-    # dataset_KLUE_train = dataset_KLUE['train'].map(features=datasets['train'].features, 
-    #                                                     remove_columns=['document_id', '__index_level_0__'], 
-    #                                                     keep_in_memory=True)
-    # dataset_KLUE_validation = dataset_KLUE['validation'].map(features=datasets['validation'].features, 
-    #                                                     remove_columns=['document_id', '__index_level_0__'], 
-    #                                                     keep_in_memory=True)
-    # datasets['train'] = concatenate_datasets([dataset_KLUE_train, datasets['train']])
-    # datasets['validation'] = concatenate_datasets([dataset_KLUE_validation, datasets['validation']])
 
     print(datasets)
 
@@ -146,9 +131,8 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
         # in one example possible giving several features when a context is long, each of those features having a
         # context that overlaps a bit the context of the previous feature.
-
         '''
-            여기에 전처리 넣어야되나?
+            전처리
         '''
         tokenized_examples = tokenizer(
             examples[question_column_name if pad_on_right else context_column_name],
@@ -246,7 +230,7 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
         # in one example possible giving several features when a context is long, each of those features having a
         # context that overlaps a bit the context of the previous feature.
         '''
-            여기도 전처리
+            전처리
         '''
         tokenized_examples = tokenizer(
             examples[question_column_name if pad_on_right else context_column_name],

@@ -37,9 +37,9 @@ from transformers.trainer_utils import get_last_checkpoint
 
 logger = logging.getLogger(__name__)
 
-mecab= Mecab()
-kkma = Kkma()       # 애초에 임베딩이 안된다
-pororo_tok = Pororo(task='tokenize', lang='ko', model = "mecab.bpe64k.ko")  # 제일 좋음 무조건 이거써야함 32보다 64가 조금 더 좋음
+# mecab= Mecab()
+# kkma = Kkma()       # 애초에 임베딩이 안된다
+# pororo_tok = Pororo(task='tokenize', lang='ko', model = "mecab.bpe64k.ko")  # 제일 좋음 무조건 이거써야함 32보다 64가 조금 더 좋음
 okt = Okt() # 생각보다 성능 안나옴
 def tokenize(text):
     # return text.split(" ")

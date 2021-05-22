@@ -96,21 +96,12 @@ def run_sparse_retrieval(datasets, training_args):
     retriever.get_sparse_embedding()
     df = retriever.retrieve(datasets['validation'], 25)
 
-    # print(df)
-    # faiss retrieval
-    # df = retriever.retrieve_faiss(dataset['validation'])
-
     if training_args.do_predict: # test data 에 대해선 정답이 없으므로 id question context 로만 데이터셋이 구성됩니다.
-        # ㄱㅣ존
+        # 기존
         f = Features({'context': Value(dtype='string', id=None),
                       'id': Value(dtype='string', id=None),
                       'question': Value(dtype='string', id=None)})
-        # 현우님꺼
-        # f = Features({'context': Value(dtype='string', id =None),
-        #               'id': Value(dtype='string', id=None),
-        #               'question': Value(dtype='string', id=None),
-        #               'score' : Value(dtype='float32', id = None)})
-
+                      
     elif training_args.do_eval: # train data 에 대해선 정답이 존재하므로 id question context answer 로 데이터셋이 구성됩니다.
         f = Features({'answers': Sequence(feature={'text': Value(dtype='string', id=None),
                                                    'answer_start': Value(dtype='int32', id=None)},
@@ -208,15 +199,6 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
             max_answer_length=data_args.max_answer_length,
             output_dir=training_args.output_dir,
         )
-    # # 현우님꺼
-    #     predictions = postprocess_qa_predictions(
-    #         examples=examples,
-    #         features=features,
-    #         predictions=predictions,
-    #         max_answer_length=data_args.max_answer_length,
-    #         output_dir=training_args.output_dir,
-    #         retrieve_topk = 100,
-    #     )
         # Format the result to the format the metric expects.
         formatted_predictions = [
             {"id": k, "prediction_text": v} for k, v in predictions.items()

@@ -25,7 +25,6 @@ from transformers import (
 )
 import pickle
 
-from utils_qa import postprocess_qa_predictions, check_no_error, tokenize
 from trainer_qa import QuestionAnsweringTrainer
 from retrieval import SparseRetrieval
 import re
@@ -166,6 +165,8 @@ print('make new dataset!!!')
 datasets = elastic_search(topk, post_type)
 
 def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
+    from utils_qa import postprocess_qa_predictions, check_no_error
+
     # only for eval or predict
     column_names = datasets["validation"].column_names
 
@@ -250,15 +251,6 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
             max_answer_length=data_args.max_answer_length,
             output_dir=training_args.output_dir,
         )
-    # # 현우님꺼
-    #     predictions = postprocess_qa_predictions(
-    #         examples=examples,
-    #         features=features,
-    #         predictions=predictions,
-    #         max_answer_length=data_args.max_answer_length,
-    #         output_dir=training_args.output_dir,
-    #         retrieve_topk = topk,
-    #     )
         # Format the result to the format the metric expects.
         formatted_predictions = [
             {"id": k, "prediction_text": v} for k, v in predictions.items()
@@ -311,7 +303,9 @@ def run_mrc(data_args, training_args, model_args, datasets, tokenizer, model):
         trainer.save_metrics("test", metrics)
 
 
-def run_mrc_2(data_args, training_args, model_args, datasets, tokenizer, model, topk=5):
+def run_mrc_score(data_args, training_args, model_args, datasets, tokenizer, model, topk=5):
+    from utils_qa_myeongsu import postprocess_qa_predictions, check_no_error
+
     # only for eval or predict
     column_names = datasets["validation"].column_names
 
@@ -498,4 +492,4 @@ print('start mrc ---- !')
 if not post_type :
     run_mrc(data_args, training_args, model_args, datasets, tokenizer, model)
 else :
-    run_mrc_2(data_args, training_args, model_args, datasets, tokenizer, model, topk=topk)
+    run_mrc_score(data_args, training_args, model_args, datasets, tokenizer, model, topk=topk)
