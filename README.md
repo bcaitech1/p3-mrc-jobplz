@@ -15,4 +15,4 @@
 |장동재|[dongjae](https://github.com/bcaitech1/p3-mrc-jobplz/tree/main/dongjae)|[Github](https://github.com/DongjaeJang)|
 |김명수|[myeongsoo](https://github.com/bcaitech1/p3-mrc-jobplz/tree/main/myeongsoo)|[Github](https://github.com/Kim-Myeong-Soo)|
 
-# 사용한 기술
+# [프로젝트 개요](https://github.com/bcaitech1/p3-mrc-jobplz/blob/main/project_overview.pdf)
