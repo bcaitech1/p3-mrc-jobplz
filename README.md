@@ -10,9 +10,9 @@
 # 팀원
 |Name|Code Directory|Github|
 |------|---|---|
-|김원배|[wonbae](https://github.com/bcaitech1/p3-mrc-jobplz/tree/main/wonbae)|[Github](https://github.com/wonbae)|
-|한현우|[hyunwoo](https://github.com/bcaitech1/p3-mrc-jobplz/tree/main/hyunwoo)|[Github](https://github.com/CodeNinja1126)|
-|박상기|[SangKi](https://github.com/bcaitech1/p3-mrc-jobplz/tree/main/SangKi)|[Github](https://github.com/sangki930)|
-|최석환|[cshwan130](https://github.com/bcaitech1/p3-mrc-jobplz/tree/main/cshwan130)|[Github](https://github.com/loyalsp13)|
-|장동재|[dongjae](https://github.com/bcaitech1/p3-mrc-jobplz/tree/main/dongjae)|[Github](https://github.com/DongjaeJang)|
-|김명수|[myeongsoo](https://github.com/bcaitech1/p3-mrc-jobplz/tree/main/myeongsoo)|[Github](https://github.com/Kim-Myeong-Soo)|
+|김원배|[wonbae](wonbae)|[Github](https://github.com/wonbae)|
+|한현우|[hyunwoo](hyunwoo)|[Github](https://github.com/CodeNinja1126)|
+|박상기|[SangKi](SangKi)|[Github](https://github.com/sangki930)|
+|최석환|[cshwan130](cshwan130)|[Github](https://github.com/loyalsp13)|
+|장동재|[dongjae](dongjae)|[Github](https://github.com/DongjaeJang)|
+|김명수|[myeongsoo](myeongsoo)|[Github](https://github.com/Kim-Myeong-Soo)|
