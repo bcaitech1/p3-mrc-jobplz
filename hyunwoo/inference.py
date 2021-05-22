@@ -24,7 +24,7 @@ from transformers import (
 
 from utils_qa_ms import postprocess_qa_predictions, check_no_error, tokenize
 from trainer_qa import QuestionAnsweringTrainer
-from ms_retrieval import SparseRetrieval
+from retrieval_ms import SparseRetrieval
 from retrieval_dense import DenseRetrieval
 
 from arguments import (
