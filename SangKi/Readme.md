@@ -2,9 +2,10 @@
 
 베이스라인에서 추가한 코드
 
-# 설명
+# 설명(기존 베이스라인에서 추가된 코드)
 |file|Description|비고|
 |------|---|---|
 |execute.py|Hyper Parameter tuning, train, inference 시 실행 파일|cmd : python3 execute.py|
 |ex.py|Elastic Search로 구현한 파일||
 |loss.py|FocalLoss, CrossEntropy가 구현된 파일|Deprecated|
+|bm25.py|bm25 custom하게 구현된 파일|Deprecated|
