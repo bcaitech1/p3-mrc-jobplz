@@ -14,7 +14,7 @@
 
 ![image](https://user-images.githubusercontent.com/9896149/120650591-e6caa980-c4b8-11eb-8b78-de38ec4fdd79.png)
 
-# 파일 구성
+# Repository 설명
 
 각 폴더에는 각 팀원의 코드가 구현되어 있습니다.
 
